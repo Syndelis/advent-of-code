@@ -27,19 +27,34 @@ fn main() {
     
     // Part 1
 
-    let mut overlaps = 0;
+    let mut full_overlaps = 0;
+    let mut partial_overlaps = 0;
 
     for (sector1, sector2) in sector_pairs {
         if (
-              sector1.0.start() <= sector2.0.start()
-            && sector1.0.end() >= sector2.0.end()
+            sector1.0.contains(sector2.0.start())
+            && sector1.0.contains(sector2.0.end())
         ) || (
-            sector2.0.start() <= sector1.0.start()
-            && sector2.0.end() >= sector1.0.end()
+            sector2.0.contains(sector1.0.start())
+            && sector2.0.contains(sector1.0.end())
         ) {
-            overlaps += 1;
+            full_overlaps += 1;
+        }
+
+        if sector1.0.contains(sector2.0.start())
+        || sector1.0.contains(sector2.0.end())
+        || sector2.0.contains(sector1.0.start())
+        || sector2.0.contains(sector1.0.end())
+        {
+            println!("Partial overlap: {:?} {:?}", sector1.0, sector2.0);
+            partial_overlaps += 1;
         }
     }
 
-    println!("Part 1: {overlaps}");
+    println!("Part 1: {full_overlaps}");
+
+    // Part 2
+
+    println!("Part 2: {partial_overlaps}");
+
 }
