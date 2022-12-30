@@ -34,6 +34,28 @@ impl RpsShape {
         }
     }
 
+    fn find_shape_based_on_result(self, result: &RpsResult) -> RpsShape {
+        // Finds the shape X that satisfies `X vs self = result`
+
+        if matches!(result, RpsResult::Draw) {
+            return self;
+        }
+
+        match (self, result) {
+            | (RpsShape::Rock, RpsResult::Win)
+            | (RpsShape::Scissors, RpsResult::Lose) => RpsShape::Paper,
+
+            | (RpsShape::Rock, RpsResult::Lose)
+            | (RpsShape::Paper, RpsResult::Win) => RpsShape::Scissors,
+
+            
+            | (RpsShape::Paper, RpsResult::Lose)
+            | (RpsShape::Scissors, RpsResult::Win) => RpsShape::Rock,
+
+            _ => unreachable!()
+        }
+    }
+
     fn shape_bonus(&self) -> i32 {
         match self {
             RpsShape::Rock => 1,
@@ -44,12 +66,12 @@ impl RpsShape {
 }
 
 impl From<&str> for RpsShape {
-    fn from(c: &str) -> Self {
-        match c {
+    fn from(s: &str) -> Self {
+        match s {
             "A" | "X" => RpsShape::Rock,
             "B" | "Y" => RpsShape::Paper,
             "C" | "Z" => RpsShape::Scissors,
-            _ => panic!("Invalid shape"),
+            _ => panic!("Invalid shape {s}"),
         }
     }
 }
@@ -64,13 +86,14 @@ impl From<RpsResult> for i32 {
     }
 }
 
-impl RpsResult {
-    fn battle<I, J>(first: I, second: J) -> Self
-    where
-        I: Into<RpsShape>,
-        J: Into<RpsShape>,
-    {
-        first.into().result_against(&second.into())
+impl From<&str> for RpsResult {
+    fn from(s: &str) -> Self {
+        match s {
+            "X" => RpsResult::Lose,
+            "Y" => RpsResult::Draw,
+            "Z" => RpsResult::Win,
+            _ => panic!("Invalid result {s}"),
+        }
     }
 }
 
@@ -91,14 +114,28 @@ fn main() {
         let theirs = game_str[0];
         let mine = game_str[1];
 
-        (theirs.into(), mine.into())
+        (theirs, mine)
     });
 
     // Part 1
-    let total_score: i32 = games.map(|(theirs, mine): (RpsShape, RpsShape)| -> i32 {
+    let total_score: i32 = games.clone().map(|(theirs, mine): (&str, &str)| -> i32 {
+        let theirs: RpsShape = theirs.into();
+        let mine: RpsShape = mine.into();
         i32::from(mine.result_against(&theirs)) + mine.shape_bonus()
     }).sum();
 
-    println!("Total score: {total_score}");
+    println!("Total score (part 1): {total_score}");
+
+    // Part 2
+    let total_score: i32 = games.map(|(theirs, game_result): (&str, &str)| -> i32 {
+        let theirs: RpsShape = theirs.into();
+        let game_result: RpsResult = game_result.into();
+        
+        let mine = theirs.find_shape_based_on_result(&game_result);
+
+        i32::from(game_result) + mine.shape_bonus()
+    }).sum();
+
+    println!("Total score (part 2): {total_score}");
 
 }
