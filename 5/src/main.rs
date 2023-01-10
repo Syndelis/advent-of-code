@@ -99,7 +99,7 @@ fn parse_and_execute_procedures(procedures_input: Vec<&str>, stacks: &HashMap<St
             }
     
             let mut to_insert = from.split_off(from_length - procedure.amount as usize);
-            to_insert.reverse(); // Part 1
+            // to_insert.reverse(); // Part 1
             to.append(&mut to_insert);
         }
 
