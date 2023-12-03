@@ -2,13 +2,18 @@ use std::ops::Range;
 
 fn main() {
     const INPUT: &str = include_str!("../input.txt");
-    let result = gear_ratios(INPUT);
+    let result = gear_ratios_part_2(INPUT);
     println!("Result: {result}");
 }
 
 fn gear_ratios(input: &str) -> u32 {
     let (numbers, symbols) = parse_numbers_and_symbols(input);
     get_numbers_adjacent_to_symbols(numbers, symbols).sum()
+}
+
+fn gear_ratios_part_2(input: &str) -> u32 {
+    let (numbers, symbols) = parse_numbers_and_symbols(input);
+    get_gear_ratios_sum(numbers, symbols)
 }
 
 fn parse_numbers_and_symbols(input: &str) -> (Vec<Number>, Vec<Symbol>) {
@@ -33,6 +38,7 @@ fn parse_numbers_and_symbols(input: &str) -> (Vec<Number>, Vec<Symbol>) {
 
             if c.is_symbol() {
                 symbols.push(Symbol {
+                    ty: c.into(),
                     pos: Position {
                         col,
                         row,
@@ -60,6 +66,23 @@ fn get_numbers_adjacent_to_symbols(numbers: Vec<Number>, symbols: Vec<Symbol>) -
         })
 }
 
+fn get_gear_ratios_sum(numbers: Vec<Number>, symbols: Vec<Symbol>) -> u32 {
+    let gears = symbols
+        .into_iter()
+        .filter(|symbol| matches!(symbol.ty, Type::Gear));
+
+    gears
+        .map(|gear| {
+            numbers
+                .iter()
+                .filter(|number| number.pos.is_adjacent(&gear.pos))
+                .fold((0, 1), |(acc_count, acc_ratio), number| (acc_count + 1, acc_ratio * number.val))
+        })
+        .filter(|(adjacency_count, _)| *adjacency_count > 1)
+        .map(|(_, gear_ratio)| gear_ratio)
+        .sum()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Number {
     val: u32,
@@ -84,7 +107,23 @@ impl Number {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Symbol {
+    ty: Type,
     pos: Position<usize>
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Type {
+    Gear,
+    SomethingElse,
+}
+
+impl From<char> for Type {
+    fn from(value: char) -> Self {
+        match value {
+            '*' => Self::Gear,
+            _ => Self::SomethingElse,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -124,7 +163,7 @@ impl IsSymbol for char {
 
 #[cfg(test)]
 mod tests {
-    use crate::{gear_ratios, Number, Symbol, Position, parse_numbers_and_symbols};
+    use crate::{gear_ratios, gear_ratios_part_2, Number, Symbol, Position, Type, parse_numbers_and_symbols};
     use test_case::test_case;
 
     #[test]
@@ -145,6 +184,29 @@ mod tests {
         const EXPECTED_OUTPUT: u32 = 4361;
 
         let result = gear_ratios(INPUT);
+
+        assert_eq!(result, EXPECTED_OUTPUT);
+    }
+
+
+    #[test]
+    fn example_case_part_2() {
+        const INPUT: &str = r"
+            467..114..
+            ...*......
+            ..35..633.
+            ......#...
+            617*......
+            .....+.58.
+            ..592.....
+            ......755.
+            ...$.*....
+            .664.598..
+        ";
+
+        const EXPECTED_OUTPUT: u32 = 467835;
+
+        let result = gear_ratios_part_2(INPUT);
 
         assert_eq!(result, EXPECTED_OUTPUT);
     }
@@ -174,6 +236,7 @@ mod tests {
         vec![],
         vec![
             Symbol {
+                ty: Type::Gear,
                 pos: Position {
                     row: 1,
                     col: 3,
@@ -194,6 +257,7 @@ mod tests {
         ],
         vec![
             Symbol {
+                ty: Type::Gear,
                 pos: Position {
                     row: 4,
                     col: 3,
