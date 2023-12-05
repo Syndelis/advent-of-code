@@ -1,8 +1,11 @@
 use std::{str::FromStr, collections::HashMap};
 
+use indicatif::{ParallelProgressIterator, ProgressIterator};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
 fn main() -> Result<(), InvalidLineState> {
     const INPUT: &str = include_str!("../input.txt");
-    let result = lowest_location(INPUT)?;
+    let result = lowest_location_part_2(INPUT)?;
     println!("Result: {result}");
     Ok(())
 }
@@ -25,6 +28,40 @@ fn lowest_location(input: &str) -> Result<u64, InvalidLineState> {
     }
 
     Ok(seed_val.into_iter().min().unwrap())
+}
+
+fn lowest_location_part_2(input: &str) -> Result<u64, InvalidLineState> {
+    let (seed_ranges, maps) = parse_seeds_and_maps(input)?;
+
+    let mut min = u64::MAX;
+
+    for seed_range in seed_ranges.chunks(2).progress_count((seed_ranges.len() / 2) as u64) {
+        let &[range_start, range_len] = seed_range else {
+            continue;
+        };
+
+        min = min.min((range_start..(range_start + range_len))
+            .into_par_iter()
+            .progress_count(range_len)
+            .filter_map(|mut seed| {
+                let mut current_map_name = "seed";
+                
+                while current_map_name != "location" {
+                    let current_map = maps.get(current_map_name)?;
+
+                    current_map_name = &current_map.to;
+                    seed = current_map.map_slot(seed);
+                }
+
+                Some(seed)
+            })
+            .min()
+            .unwrap_or(u64::MAX)
+        );
+    }
+
+
+    Ok(min)
 }
 
 fn parse_seeds_and_maps(input: &str) -> Result<(Vec<u64>, HashMap<String, Mapping>), InvalidLineState> {
@@ -99,7 +136,7 @@ impl FromStr for LineAction {
         {
             Ok(LineAction::StartMapping { from: from.to_owned(), to: to.to_owned() })
         } else {
-            todo!()
+            unreachable!("A line must always conform to one of the previous formats!")
         }
     }
 }
@@ -167,7 +204,7 @@ impl FromStr for MapRule {
 
 #[cfg(test)]
 mod tests {
-    use crate::lowest_location;
+    use crate::{lowest_location, lowest_location_part_2};
 
 
     const EXAMPLE_INPUT: &str = r"
@@ -210,6 +247,13 @@ mod tests {
     fn example_case() {
         const EXPECTED_OUTPUT: u64 = 35;
         let result = lowest_location(EXAMPLE_INPUT);
+        assert_eq!(result, Ok(EXPECTED_OUTPUT));
+    }
+
+    #[test]
+    fn example_case_part_2() {
+        const EXPECTED_OUTPUT: u64 = 46;
+        let result = lowest_location_part_2(EXAMPLE_INPUT);
         assert_eq!(result, Ok(EXPECTED_OUTPUT));
     }
 }
