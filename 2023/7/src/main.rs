@@ -1,15 +1,15 @@
-use std::{str::FromStr, collections::HashMap, num::ParseIntError};
+use std::{str::FromStr, collections::HashMap, num::ParseIntError, cmp::Ordering};
 
 use strum::EnumString;
 
 fn main() -> Result<(), LineParseError> {
     const INPUT: &str = include_str!("../input.txt");
-    let result = get_total_winnings(INPUT)?;
+    let result = get_total_winnings_part_2(INPUT)?;
     println!("Result: {result}");
     Ok(())
 }
 
-fn get_total_winnings(input: &str) -> Result<u64, LineParseError> {
+fn get_total_winnings_part_2(input: &str) -> Result<u64, LineParseError> {
     let mut hands_and_bids: Vec<(Hand, u64)> = input
         .trim()
         .lines()
@@ -45,6 +45,7 @@ enum LineParseError {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, EnumString, Hash, Clone, Copy)]
 #[strum(ascii_case_insensitive)]
 enum Card {
+    J,
     #[strum(serialize = "2")]
     Two,
     #[strum(serialize = "3")]
@@ -62,14 +63,19 @@ enum Card {
     #[strum(serialize = "9")]
     Nine,
     T,
-    J,
     Q,
     K,
     A,
 }
 
+impl Card {
+    fn is_joker(&self) -> bool {
+        matches!(self, Card::J)
+    }
+}
+
 #[repr(u8)]
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum HandType {
     HighCard,
     OnePair,
@@ -80,7 +86,7 @@ enum HandType {
     FiveOfAKind,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Hand {
     hand_type: HandType,
     cards: [Card; 5],
@@ -131,24 +137,25 @@ impl From<&[Card; 5]> for HandType {
             *card_counts.entry(card).or_insert(0) += 1;
         }
 
-        // Safety: Guaranteed to have at least 1 element because of the
-        // function's signature
-        let (card_with_highest_count, highest_count) = unsafe {
-            card_counts
+        let jokers_count = card_counts.get(&Card::J).copied().unwrap_or_default();
+
+        let (card_with_highest_count, highest_count) = card_counts
                 .iter()
+                .filter(|(card, _)| !card.is_joker())
                 .max_by_key(|(_, count)| *count)
                 .map(|(card, count)| (*card, *count))
-                .unwrap_unchecked()
-        };
+                .unwrap_or((&Card::J, 0));
 
         let second_highest_count = card_counts
             .into_iter()
-            .filter(|(card, _)| *card != card_with_highest_count)
+            .filter(|(card, _)| {
+                !card.is_joker() && *card != card_with_highest_count
+            })
             .map(|(_, count)| count)
             .max()
             .unwrap_or_default();
 
-        match (highest_count, second_highest_count) {
+        match (highest_count + jokers_count, second_highest_count) {
             (5, _) => Self::FiveOfAKind,
             (4, _) => Self::FourOfAKind,
             (3, 2) => Self::FullHouse,
@@ -162,8 +169,10 @@ impl From<&[Card; 5]> for HandType {
 
 #[cfg(test)]
 mod tests {
-    use crate::get_total_winnings;
+    use std::str::FromStr;
 
+    use crate::{get_total_winnings_part_2, HandType, Hand};
+    use test_case::test_case;
 
     const EXAMPLE_INPUT: &str = r"
         32T3K 765
@@ -174,9 +183,29 @@ mod tests {
     ";
 
     #[test]
-    fn example_case() {
-        const EXPECTED_OUTPUT: u64 = 6440;
-        let result = get_total_winnings(EXAMPLE_INPUT);
+    fn example_case_part_2() {
+        const EXPECTED_OUTPUT: u64 = 5905;
+        let result = get_total_winnings_part_2(EXAMPLE_INPUT);
         assert_eq!(result.unwrap(), EXPECTED_OUTPUT);
+    }
+
+    #[test_case("4558J", HandType::ThreeOfAKind)]
+    #[test_case("T7JJT", HandType::FourOfAKind)]
+    #[test_case("AAJJJ", HandType::FiveOfAKind)]
+    #[test_case("9J2TT", HandType::ThreeOfAKind)]
+    #[test_case("T8JTJ", HandType::FourOfAKind)]
+    #[test_case("6J69J", HandType::FourOfAKind)]
+    #[test_case("4J935", HandType::OnePair)]
+    #[test_case("JJJ8J", HandType::FiveOfAKind)]
+    #[test_case("222J2", HandType::FiveOfAKind)]
+    #[test_case("JKKKJ", HandType::FiveOfAKind)]
+    #[test_case("QJ533", HandType::ThreeOfAKind)]
+    #[test_case("666JJ", HandType::FiveOfAKind)]
+    #[test_case("AA9J7", HandType::ThreeOfAKind)]
+    #[test_case("QJ777", HandType::FourOfAKind)]
+    #[test_case("JJJJJ", HandType::FiveOfAKind)]
+    fn test_hand_type_with_jokers(line: &str, expected_type: HandType) {
+        let hand = Hand::from_str(line).unwrap();
+        assert_eq!(hand.hand_type, expected_type);
     }
 }
