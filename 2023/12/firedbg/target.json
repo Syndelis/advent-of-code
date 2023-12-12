@@ -1,0 +1,11 @@
+{
+  "binaries": [
+    {
+      "name": "day-12",
+      "src_path": "/home/brenno/Projects/advent-of-code/2023/12/src/main.rs"
+    }
+  ],
+  "examples": [],
+  "integration_tests": [],
+  "unit_tests": []
+}
